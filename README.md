@@ -18,6 +18,7 @@ A race pace planning tool for runners. Enter a distance and goal time, choose a 
 - **Split differential slider** — dial in 1–15% variance between first and last segment for positive/negative modes
 - **Results table** — segment, distance marker, pace, and cumulative time; segments deviating more than 10s from average are highlighted
 - **Goal summary bar** — race, goal time, average pace, strategy, projected total, and delta vs goal at a glance
+- **Course Name & Race Date** — optional fields to personalise exports; the course name appears in the goal summary bar, PDF title, and filenames; the date is formatted in locale-readable form everywhere
 - **GPX upload** — drag-and-drop a .gpx file from Strava, Garmin, Coros or any device; the server parses elevation and returns per-segment gradient data
 - **Grade-adjusted pace** — per-segment effort multiplier based on gradient; uphill segments get a cost, downhill a benefit; all paces are normalised so the total still equals your goal time exactly
 - **Elevation chart** — area chart of the elevation profile with segment boundaries
@@ -86,9 +87,10 @@ race-pace-splitter/
             ├── CustomPaceTable.jsx
             ├── SplitResultsTable.jsx
             ├── GoalSummary.jsx
-            ├── GpxUpload.jsx     # Drag-and-drop GPX upload
-            ├── ElevationChart.jsx # Recharts elevation area chart
-            └── ExportButtons.jsx  # CSV and PDF export buttons
+            ├── GpxUpload.jsx           # Drag-and-drop GPX upload
+            ├── ElevationChart.jsx      # Recharts elevation area chart
+            ├── ExportButtons.jsx       # CSV and PDF export buttons
+            └── PersonalisationFields.jsx # Optional Course Name + Race Date
 ```
 
 ---

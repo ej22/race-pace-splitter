@@ -51,9 +51,10 @@ race-pace-splitter/
             ├── CustomPaceTable.jsx
             ├── SplitResultsTable.jsx
             ├── GoalSummary.jsx
-            ├── GpxUpload.jsx       # Drag-and-drop GPX upload
-            ├── ElevationChart.jsx  # Recharts area chart; exposes getChartImage() ref
-            └── ExportButtons.jsx   # Export CSV / Export PDF
+            ├── GpxUpload.jsx           # Drag-and-drop GPX upload
+            ├── ElevationChart.jsx      # Recharts area chart; exposes getChartImage() ref
+            ├── ExportButtons.jsx       # Export CSV / Export PDF
+            └── PersonalisationFields.jsx # Optional Course Name + Race Date inputs
 ```
 
 ---
@@ -105,6 +106,13 @@ docker build -t race-pace-splitter . && docker compose up -d
 | PDF export | `exportPdf.js`, `ExportButtons.jsx` | jsPDF A4 light theme; info grid header, embedded elevation chart image, jspdf-autotable splits table with orange header row |
 | GoalSummary elevation | `GoalSummary.jsx` | Shows total ascent and descent when GPX is loaded |
 
+### V3 Features
+
+| Feature | Files | Notes |
+|---|---|---|
+| Course Name input | `PersonalisationFields.jsx`, `App.jsx` | Optional free-text field; appears in GoalSummary, PDF title, CSV header, and export filename |
+| Race Date input | `PersonalisationFields.jsx`, `App.jsx` | Optional date picker; displayed as locale-formatted string everywhere (e.g. "26 October 2026"); PDF includes weekday |
+
 ---
 
 ## Calculation Logic
@@ -150,20 +158,24 @@ Segment objects: `{ segment, distanceMarker, paceSeconds, segmentLengthKm, cumul
 ```
 selectedRace       — { label, distanceKm, unit } | null
 goalTime           — { h, m, s }
-goalSeconds        — derived (useMemo)
 splitMode          — 'even' | 'positive' | 'negative' | 'custom'
 splitPercent       — number (1–15)
 customPaces        — string[] (MM:SS per segment)
 elevationProfile   — server segment array | null
 elevationSummary   — { totalDistanceKm, totalAscent, totalDescent, pointCount } | null
 gpxFilename        — string | null
+courseName         — string (default "")
+raceDate           — string ISO "YYYY-MM-DD" (default "")
 
 Derived:
+goalSeconds        — useMemo from goalTime
 segments           — base pace segments (non-custom modes)
 adjustedSegments   — segments with grade adjustment applied
 customSegments     — computed from customPaces (for export + GoalSummary)
 exportSegments     — adjustedSegments or customSegments depending on mode
 raceInfo           — { raceName, distanceKm, unit, goalTime, splitMode, splitPercent, avgPace }
+
+Note: courseName and raceDate are passed separately alongside raceInfo to GoalSummary and ExportButtons. ExportButtons merges them into raceInfo before calling export utilities (as courseName and raceDate keys), keeping raceInfo minimal for the non-export use cases.
 ```
 
 ---
