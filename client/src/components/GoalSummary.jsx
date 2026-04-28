@@ -10,18 +10,15 @@ const MODE_LABELS = {
   custom: 'Custom',
 };
 
-export default function GoalSummary({ selectedRace, goalSeconds, splitMode, segments }) {
+export default function GoalSummary({ selectedRace, goalSeconds, splitMode, segments, elevationSummary }) {
   if (!selectedRace || !goalSeconds) return null;
 
   const avgPaceKm = goalSeconds / selectedRace.distanceKm;
-  const avgPaceDisplay = selectedRace.unit === 'mile'
-    ? avgPaceKm * MILES_TO_KM
-    : avgPaceKm;
+  const avgPaceDisplay = selectedRace.unit === 'mile' ? avgPaceKm * MILES_TO_KM : avgPaceKm;
   const paceUnit = selectedRace.unit === 'mile' ? '/mi' : '/km';
 
-  const projectedTime = segments && segments.length > 0
-    ? segments[segments.length - 1].cumulativeSeconds
-    : null;
+  const projectedTime =
+    segments && segments.length > 0 ? segments[segments.length - 1].cumulativeSeconds : null;
   const delta = projectedTime != null ? projectedTime - goalSeconds : null;
 
   return (
@@ -42,6 +39,18 @@ export default function GoalSummary({ selectedRace, goalSeconds, splitMode, segm
         <div className="text-[10px] tracking-widest text-neutral-500 uppercase mb-0.5">Strategy</div>
         <div className="font-bold text-[#F27E00]">{MODE_LABELS[splitMode]}</div>
       </div>
+      {elevationSummary && (
+        <>
+          <div>
+            <div className="text-[10px] tracking-widest text-neutral-500 uppercase mb-0.5">Ascent</div>
+            <div className="font-pace text-neutral-100">+{elevationSummary.totalAscent}m</div>
+          </div>
+          <div>
+            <div className="text-[10px] tracking-widest text-neutral-500 uppercase mb-0.5">Descent</div>
+            <div className="font-pace text-neutral-100">-{elevationSummary.totalDescent}m</div>
+          </div>
+        </>
+      )}
       {projectedTime != null && (
         <>
           <div>

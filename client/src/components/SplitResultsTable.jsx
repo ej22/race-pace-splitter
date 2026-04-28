@@ -4,10 +4,11 @@ import { formatPace, formatTime } from '../utils/paceCalc';
 export default function SplitResultsTable({ segments, unit, goalSeconds }) {
   if (!segments || segments.length === 0) return null;
 
-  const avgPaceSeconds = segments.length > 0
-    ? segments.reduce((sum, s) => sum + s.paceSeconds * s.segmentLengthKm, 0) /
-      segments.reduce((sum, s) => sum + s.segmentLengthKm, 0)
-    : 0;
+  const hasElevation = segments[0]?.adjustedPaceSeconds != null;
+
+  const avgPaceSeconds =
+    segments.reduce((sum, s) => sum + s.paceSeconds * s.segmentLengthKm, 0) /
+    segments.reduce((sum, s) => sum + s.segmentLengthKm, 0);
 
   const paceUnit = unit === 'mile' ? '/mi' : '/km';
   const paceConvert = unit === 'mile' ? 1.60934 : 1;
@@ -25,6 +26,13 @@ export default function SplitResultsTable({ segments, unit, goalSeconds }) {
               <th className="text-left py-2 pr-4">Seg</th>
               <th className="text-left py-2 pr-4">Distance</th>
               <th className="text-right py-2 pr-4">Pace{paceUnit}</th>
+              {hasElevation && (
+                <>
+                  <th className="text-right py-2 pr-4">Elev</th>
+                  <th className="text-right py-2 pr-4">Grade</th>
+                  <th className="text-right py-2 pr-4">Adj Pace{paceUnit}</th>
+                </>
+              )}
               <th className="text-right py-2">Cumulative</th>
             </tr>
           </thead>
@@ -35,6 +43,11 @@ export default function SplitResultsTable({ segments, unit, goalSeconds }) {
               const deviation = Math.abs(seg.paceSeconds - avgPaceSeconds);
               const highlight = deviation > 10 && !isLast;
 
+              const adjFaster =
+                hasElevation &&
+                seg.adjustedPaceSeconds != null &&
+                seg.adjustedPaceSeconds < seg.flatPaceSeconds;
+
               return (
                 <tr
                   key={seg.segment}
@@ -43,12 +56,25 @@ export default function SplitResultsTable({ segments, unit, goalSeconds }) {
                   <td className="py-2 pr-4 text-neutral-400">{seg.segment}</td>
                   <td className="py-2 pr-4 text-neutral-300">
                     {unit === 'mile'
-                      ? `${(seg.distanceMarker).toFixed(1)} mi`
+                      ? `${seg.distanceMarker.toFixed(1)} mi`
                       : `${seg.distanceMarker.toFixed(1)} km`}
                   </td>
                   <td className={`py-2 pr-4 text-right font-pace ${highlight ? 'text-yellow-400' : 'text-neutral-200'}`}>
                     {formatPace(displayPace)}
                   </td>
+                  {hasElevation && (
+                    <>
+                      <td className="py-2 pr-4 text-right font-pace text-neutral-400 text-xs">
+                        {seg.netChange >= 0 ? '↑' : '↓'}{Math.abs(seg.netChange)}m
+                      </td>
+                      <td className="py-2 pr-4 text-right font-pace text-neutral-400 text-xs">
+                        {(seg.gradientPercent || 0).toFixed(1)}%
+                      </td>
+                      <td className={`py-2 pr-4 text-right font-pace ${adjFaster ? 'text-[#22c55e]' : 'text-[#F27E00]'}`}>
+                        {formatPace(seg.adjustedPaceSeconds * paceConvert)}
+                      </td>
+                    </>
+                  )}
                   <td className="py-2 text-right font-pace text-neutral-200">
                     {formatTime(seg.cumulativeSeconds)}
                   </td>

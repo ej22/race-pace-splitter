@@ -1,9 +1,10 @@
 import React from 'react';
 import { parsePaceInput, formatTime, calcCumulativeTime } from '../utils/paceCalc';
+import { applyGradeAdjustment } from '../utils/gradeAdjust';
 
 const MILES_TO_KM = 1.60934;
 
-export default function CustomPaceTable({ selectedRace, customPaces, onChange, goalSeconds }) {
+export default function CustomPaceTable({ selectedRace, customPaces, onChange, goalSeconds, elevationProfile }) {
   if (!selectedRace) return null;
 
   const segmentDistKm = selectedRace.unit === 'mile' ? MILES_TO_KM : 1;
@@ -26,9 +27,8 @@ export default function CustomPaceTable({ selectedRace, customPaces, onChange, g
     const paceSecondsPerKm = parsePaceInput(p);
     return {
       segment: i + 1,
-      distanceMarker: selectedRace.unit === 'mile'
-        ? parseFloat(((i + 1)).toFixed(2))
-        : parseFloat(segEnd.toFixed(2)),
+      distanceMarker:
+        selectedRace.unit === 'mile' ? i + 1 : parseFloat(segEnd.toFixed(2)),
       paceSeconds: paceSecondsPerKm != null ? paceSecondsPerKm / paceConvert : null,
       segmentLengthKm: segLengthKm,
       cumulativeSeconds: 0,
@@ -37,11 +37,17 @@ export default function CustomPaceTable({ selectedRace, customPaces, onChange, g
 
   const allValid = segments.every((s) => s.paceSeconds != null);
   const withCumulative = allValid
-    ? calcCumulativeTime(segments.map((s) => ({ ...s, paceSeconds: s.paceSeconds })))
+    ? calcCumulativeTime(segments.map((s) => ({ ...s })))
     : segments;
 
   const totalTime = allValid ? withCumulative[withCumulative.length - 1].cumulativeSeconds : null;
   const delta = totalTime != null && goalSeconds ? totalTime - goalSeconds : null;
+
+  const hasElevation = elevationProfile && elevationProfile.length > 0;
+  const adjustedSegs =
+    hasElevation && allValid && totalTime
+      ? applyGradeAdjustment(withCumulative, elevationProfile, totalTime)
+      : null;
 
   return (
     <div className="space-y-2">
@@ -53,6 +59,13 @@ export default function CustomPaceTable({ selectedRace, customPaces, onChange, g
               <th className="text-left py-2 pr-4">Seg</th>
               <th className="text-left py-2 pr-4">Distance</th>
               <th className="text-right py-2 pr-4">Pace{paceUnit} (MM:SS)</th>
+              {hasElevation && (
+                <>
+                  <th className="text-right py-2 pr-4">Elev</th>
+                  <th className="text-right py-2 pr-4">Grade</th>
+                  <th className="text-right py-2 pr-4">Adj Pace{paceUnit}</th>
+                </>
+              )}
               <th className="text-right py-2">Cumulative</th>
             </tr>
           </thead>
@@ -60,6 +73,12 @@ export default function CustomPaceTable({ selectedRace, customPaces, onChange, g
             {segments.map((seg, idx) => {
               const cumSeg = withCumulative[idx];
               const paceValid = seg.paceSeconds != null;
+              const adjSeg = adjustedSegs?.[idx];
+              const adjFaster =
+                adjSeg != null && adjSeg.adjustedPaceSeconds < seg.paceSeconds;
+
+              const elev = elevationProfile?.[idx];
+
               return (
                 <tr key={seg.segment} className="border-b border-neutral-800">
                   <td className="py-1 pr-4 text-neutral-400">{seg.segment}</td>
@@ -81,6 +100,23 @@ export default function CustomPaceTable({ selectedRace, customPaces, onChange, g
                       }`}
                     />
                   </td>
+                  {hasElevation && (
+                    <>
+                      <td className="py-1 pr-4 text-right font-pace text-neutral-400 text-xs">
+                        {elev ? `${elev.netChange >= 0 ? '↑' : '↓'}${Math.abs(elev.netChange)}m` : '—'}
+                      </td>
+                      <td className="py-1 pr-4 text-right font-pace text-neutral-400 text-xs">
+                        {elev ? `${(elev.gradientPercent || 0).toFixed(1)}%` : '—'}
+                      </td>
+                      <td className={`py-1 pr-4 text-right font-pace ${adjSeg ? (adjFaster ? 'text-[#22c55e]' : 'text-[#F27E00]') : 'text-neutral-500'}`}>
+                        {adjSeg && paceValid
+                          ? adjSeg.adjustedPaceSeconds != null
+                            ? `${Math.floor(adjSeg.adjustedPaceSeconds * paceConvert / 60)}:${String(Math.round((adjSeg.adjustedPaceSeconds * paceConvert) % 60)).padStart(2, '0')}`
+                            : '—'
+                          : '—'}
+                      </td>
+                    </>
+                  )}
                   <td className="py-1 text-right font-pace text-neutral-400">
                     {allValid && cumSeg ? formatTime(cumSeg.cumulativeSeconds) : '—'}
                   </td>
