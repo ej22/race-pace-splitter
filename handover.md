@@ -9,11 +9,11 @@
 
 ## What Was Built
 
-A single-container Docker application for race pace planning. Athletes input a race distance and goal time, choose a split strategy, and get a full per-segment pace/time breakdown.
+A single-container Docker application for race pace planning. Athletes input a race distance and goal time, choose a split strategy, and get a full per-segment pace/time breakdown. V2 adds GPX upload with elevation-aware grade-adjusted pacing and CSV/PDF export.
 
 ### Stack
-- **Frontend:** React 18 + Vite 5 + Tailwind CSS 3
-- **Backend:** Node 20 + Express 4
+- **Frontend:** React 18 + Vite 5 + Tailwind CSS 3 + Recharts 2 + jsPDF 2
+- **Backend:** Node 20 + Express 4 + multer + fast-xml-parser
 - **Container:** Multi-stage Docker build (Node 20 Alpine throughout)
 - **No component library** — all UI is hand-rolled with Tailwind
 
@@ -26,20 +26,23 @@ race-pace-splitter/
 ├── Dockerfile
 ├── docker-compose.yml
 ├── server/
-│   ├── index.js          # Express server
-│   └── package.json
+│   ├── index.js          # Express server + /api/gpx endpoint
+│   └── package.json      # express, multer, fast-xml-parser
 └── client/
     ├── index.html
-    ├── package.json
+    ├── package.json      # react, recharts, jspdf, jspdf-autotable
     ├── vite.config.js
     ├── tailwind.config.js
     ├── postcss.config.js
     └── src/
         ├── main.jsx
-        ├── App.jsx           # All state lives here
-        ├── index.css         # Tailwind directives
+        ├── App.jsx               # All state lives here
+        ├── index.css             # Tailwind directives + .font-pace utility
         ├── utils/
-        │   └── paceCalc.js   # All calculation logic
+        │   ├── paceCalc.js       # Core pace/time calculation (pure functions)
+        │   ├── gradeAdjust.js    # Grade-adjusted pace with normalisation
+        │   ├── exportCsv.js      # CSV Blob download
+        │   └── exportPdf.js      # jsPDF A4 PDF generation
         └── components/
             ├── RaceSelector.jsx
             ├── GoalTimeInput.jsx
@@ -47,7 +50,10 @@ race-pace-splitter/
             ├── SplitSlider.jsx
             ├── CustomPaceTable.jsx
             ├── SplitResultsTable.jsx
-            └── GoalSummary.jsx
+            ├── GoalSummary.jsx
+            ├── GpxUpload.jsx       # Drag-and-drop GPX upload
+            ├── ElevationChart.jsx  # Recharts area chart; exposes getChartImage() ref
+            └── ExportButtons.jsx   # Export CSV / Export PDF
 ```
 
 ---
@@ -58,11 +64,11 @@ race-pace-splitter/
 - Stage 1 (`builder`): installs client deps, runs `vite build`, outputs to `/app/client/dist`
 - Stage 2 (runtime): installs only server prod deps, copies `dist` from builder, runs Express
 
-**Port mapping:** host `1337` → container `3000`. The Express server always listens on 3000 internally; only the host-side mapping was changed from the original 3000 spec.
+**Port mapping:** host `1337` → container `3000`. The Express server always listens on 3000 internally.
 
 **To bring up:**
 ```bash
-docker compose up          # uses docker-compose.yml
+docker compose up
 # or directly:
 docker run -d -p 1337:3000 race-pace-splitter
 ```
@@ -76,6 +82,8 @@ docker build -t race-pace-splitter . && docker compose up -d
 
 ## Features Implemented
 
+### V1 Features
+
 | Feature | Component | Notes |
 |---|---|---|
 | Race distance selector | `RaceSelector.jsx` | 4 presets + custom field with km/mi toggle and live unit conversion |
@@ -85,43 +93,78 @@ docker build -t race-pace-splitter . && docker compose up -d
 | Results table | `SplitResultsTable.jsx` | Seg, distance marker, pace, cumulative time; highlights segments deviating >10s from avg pace in yellow |
 | Custom pace table | `CustomPaceTable.jsx` | One editable MM:SS row per segment; validates format; shows cumulative time and total delta |
 | Goal summary bar | `GoalSummary.jsx` | Persistent bar across all modes once race + goal time are set |
-| GPX API stub | `server/index.js` | `POST /api/gpx` returns 501; marked with TODO for future elevation/grade-adjusted pace support |
+
+### V2 Features
+
+| Feature | Files | Notes |
+|---|---|---|
+| GPX file upload | `server/index.js`, `GpxUpload.jsx` | Server parses GPX XML with fast-xml-parser; extracts trackpoints, computes haversine distances, returns per-segment elevation data |
+| Grade-adjusted pace | `gradeAdjust.js`, `SplitResultsTable.jsx`, `CustomPaceTable.jsx` | Multiplier formula applied per segment; paces normalised so total = goal time exactly |
+| Elevation chart | `ElevationChart.jsx` | Recharts AreaChart with orange gradient; segment ReferenceLine boundaries; exposes `getChartImage()` via forwardRef for PDF capture |
+| CSV export | `exportCsv.js`, `ExportButtons.jsx` | Comment-header rows + column header + data rows; elevation columns included when GPX loaded |
+| PDF export | `exportPdf.js`, `ExportButtons.jsx` | jsPDF A4 light theme; info grid header, embedded elevation chart image, jspdf-autotable splits table with orange header row |
+| GoalSummary elevation | `GoalSummary.jsx` | Shows total ascent and descent when GPX is loaded |
 
 ---
 
-## Calculation Logic (`paceCalc.js`)
+## Calculation Logic
+
+### paceCalc.js (unchanged from V1)
 
 All pure functions, no side effects:
 
 - `generateEvenSplits(distanceKm, goalSeconds, unit)` — identical pace every segment
-- `generateProgressiveSplits(distanceKm, goalSeconds, unit, splitPercent, direction)` — linear pace gradient from first to last segment; paces are scaled after generation so the total always equals `goalSeconds` exactly
+- `generateProgressiveSplits(distanceKm, goalSeconds, unit, splitPercent, direction)` — linear pace gradient; total always equals `goalSeconds` exactly
 - `calcCumulativeTime(segments)` — adds `cumulativeSeconds` to each segment
 - `formatPace(secondsPerKm)` → `"MM:SS"`
 - `formatTime(totalSeconds)` → `"H:MM:SS"`
 - `parsePaceInput(mmss)` → seconds or `null` if invalid
 
-Segment objects throughout: `{ segment, distanceMarker, paceSeconds, segmentLengthKm, cumulativeSeconds }`
+Segment objects: `{ segment, distanceMarker, paceSeconds, segmentLengthKm, cumulativeSeconds }`
 
-The last segment of any race is handled correctly for non-integer distances (e.g. a half marathon's final short segment gets the right proportional time, not a full km worth).
+### gradeAdjust.js (V2)
+
+`applyGradeAdjustment(segments, elevationProfile, goalSeconds)`:
+
+1. For each segment, read `gradientPercent` from the elevation profile
+2. Compute effort multiplier:
+   - Uphill (≥ 0%): `1 + 0.033 × gradient`
+   - Mild downhill (0% to −10%): `1 − 0.018 × |gradient|`
+   - Steep downhill (< −10%): `0.82 + 0.02 × (|gradient| − 10)` — benefit caps, cost resumes
+3. Apply multiplier to each segment's `paceSeconds` → raw `adjustedPaceSeconds`
+4. Scale all adjusted paces by `goalSeconds / rawTotal` so sum of segment times = goal exactly
+5. Returns segments with added fields: `flatPaceSeconds`, `adjustedPaceSeconds`, `elevationGain`, `elevationLoss`, `netChange`, `gradientPercent`
+
+### GPX Parsing (server/index.js — V2)
+
+1. multer receives the file into memory (max 10 MB)
+2. fast-xml-parser parses the XML; supports `<trk>/<trkseg>/<trkpt>` and falls back to `<rte>/<rtept>`
+3. Cumulative haversine distance computed across all trackpoints
+4. Trackpoints bucketed into 1km (or 1mi) segments
+5. Per segment: `startElevation`, `endElevation`, `elevationGain`, `elevationLoss`, `netChange`, `gradientPercent`
 
 ---
 
-## Issues Encountered and Fixes
+## App State (App.jsx)
 
-### 1. Port conflict
-**Problem:** Original spec used port 3000, which was already occupied on the host machine.  
-**Fix:** Changed `docker-compose.yml` host mapping from `3000:3000` to `1337:3000`. The container-internal port stays 3000; only the host-side binding changed. No code changes required.
+```
+selectedRace       — { label, distanceKm, unit } | null
+goalTime           — { h, m, s }
+goalSeconds        — derived (useMemo)
+splitMode          — 'even' | 'positive' | 'negative' | 'custom'
+splitPercent       — number (1–15)
+customPaces        — string[] (MM:SS per segment)
+elevationProfile   — server segment array | null
+elevationSummary   — { totalDistanceKm, totalAscent, totalDescent, pointCount } | null
+gpxFilename        — string | null
 
-### 2. No local Node/npm available for pre-build validation
-**Problem:** The host machine has no Node or npm installed, so the usual workflow of `npm install && npm run build` locally before writing the Dockerfile was not available.  
-**Fix:** The Docker build itself served as the validation step. The multi-stage Dockerfile installs deps and runs `vite build` inside the builder stage, so any compile or import errors surface during `docker build`. The build succeeded cleanly on first attempt.
-
-### 3. PostCSS config module type warning
-**Problem:** During the Vite build step inside Docker, Node emitted a warning:  
-`Module type of file postcss.config.js is not specified and it doesn't parse as CommonJS. Reparsing as ES module because module syntax was detected.`  
-**What it means:** `postcss.config.js` uses `export default` (ESM syntax) but `client/package.json` does not declare `"type": "module"`.  
-**Impact:** Warning only — the build completed successfully and the output CSS is correct.  
-**Fix (if desired):** Add `"type": "module"` to `client/package.json`. Not done during this session to avoid any unintended side effects on Vite's CJS interop, but it is safe to add.
+Derived:
+segments           — base pace segments (non-custom modes)
+adjustedSegments   — segments with grade adjustment applied
+customSegments     — computed from customPaces (for export + GoalSummary)
+exportSegments     — adjustedSegments or customSegments depending on mode
+raceInfo           — { raceName, distanceKm, unit, goalTime, splitMode, splitPercent, avgPace }
+```
 
 ---
 
@@ -131,23 +174,47 @@ The last segment of any race is handled correctly for non-integer distances (e.g
 |---|---|---|---|
 | `GET /` | SPA | 200 | Serves `index.html` with bundled React app |
 | `GET /*` | SPA catch-all | 200 | Client-side routing support |
-| `POST /api/gpx` | Stub | 501 | Ready for GPX elevation feature |
+| `POST /api/gpx` | JSON | 200 | Real GPX parsing endpoint; returns `{ success, summary, segments }` |
 
 ---
 
-## What Is Not Implemented (by design)
+## Issues Encountered and Fixes
 
-- GPX elevation parsing and grade-adjusted pace — stub only, marked TODO in `server/index.js`
+### 1. Port conflict (V1)
+**Problem:** Original spec used port 3000, which was already occupied on the host machine.  
+**Fix:** Changed `docker-compose.yml` host mapping from `3000:3000` to `1337:3000`.
+
+### 2. No local Node/npm (V1)
+**Problem:** Host machine has no Node or npm installed.  
+**Fix:** Docker build itself serves as the validation step.
+
+### 3. PostCSS config module type warning (V1, ongoing)
+**Problem:** `postcss.config.js` uses ESM syntax but `client/package.json` has no `"type": "module"`.  
+**Impact:** Warning only — build and CSS output are correct.  
+**Fix (if desired):** Add `"type": "module"` to `client/package.json`.
+
+### 4. gpxparser incompatible with Node.js (V2)
+**Problem:** The `gpxparser` npm package uses `DOMParser` internally, which is not available in Node 20 without a polyfill.  
+**Fix:** Used `fast-xml-parser` instead — pure Node.js XML parser, no DOM dependency. GPX trackpoints are extracted directly from the parsed object tree.
+
+### 5. docker-compose image name mismatch (V2)
+**Problem:** `docker compose up` rebuilds as `race-pace-splitter-app` (prefixed with project name), while `docker build -t race-pace-splitter` produces a differently named image. The compose-built image had no port binding in one run.  
+**Fix:** Use `docker build -t race-pace-splitter . && docker run -d -p 1337:3000 race-pace-splitter` for reliable manual runs, or trust `docker compose up` to wire ports correctly when run from the project directory.
+
+---
+
+## What Is Not Implemented
+
 - Persistence / saving of plans
-- Export (PDF, CSV, etc.)
 - Authentication
-- Any backend calculation — all pace math runs client-side in the browser
+- Any backend calculation beyond GPX parsing — all pace math runs client-side
 
 ---
 
 ## Next Steps / Known Opportunities
 
 - Add `"type": "module"` to `client/package.json` to clear the PostCSS build warning
-- Implement `POST /api/gpx` elevation support (the route is already wired)
-- Add a `.dockerignore` to exclude `node_modules`, `.git`, etc. from the build context for faster rebuilds
+- Add a `.dockerignore` to exclude `node_modules`, `.git`, etc. for faster rebuilds
 - Consider a `healthcheck` in `docker-compose.yml` for production use
+- Code-split the bundle — jsPDF + recharts push the main chunk to ~950 kB minified; dynamic `import()` for the export utilities would fix the Vite chunk size warning
+- Save and share plans via URL (encode state in query string or short link)
