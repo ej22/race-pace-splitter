@@ -10,7 +10,17 @@ const MODE_LABELS = {
   custom: 'Custom',
 };
 
-export default function GoalSummary({ selectedRace, goalSeconds, splitMode, segments, elevationSummary }) {
+function formatDate(isoDate) {
+  if (!isoDate) return null;
+  const [y, m, d] = isoDate.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+export default function GoalSummary({ selectedRace, goalSeconds, splitMode, segments, elevationSummary, courseName, raceDate }) {
   if (!selectedRace || !goalSeconds) return null;
 
   const avgPaceKm = goalSeconds / selectedRace.distanceKm;
@@ -21,12 +31,23 @@ export default function GoalSummary({ selectedRace, goalSeconds, splitMode, segm
     segments && segments.length > 0 ? segments[segments.length - 1].cumulativeSeconds : null;
   const delta = projectedTime != null ? projectedTime - goalSeconds : null;
 
+  const displayName = courseName || selectedRace.label;
+  const formattedDate = formatDate(raceDate);
+
   return (
     <div className="border border-neutral-800 bg-neutral-900 px-4 py-3 flex flex-wrap gap-6 text-sm">
       <div>
-        <div className="text-[10px] tracking-widest text-neutral-500 uppercase mb-0.5">Race</div>
-        <div className="font-bold text-neutral-100">{selectedRace.label}</div>
+        <div className="text-[10px] tracking-widest text-neutral-500 uppercase mb-0.5">
+          {courseName ? 'Course' : 'Race'}
+        </div>
+        <div className="font-bold text-neutral-100">{displayName}</div>
       </div>
+      {formattedDate && (
+        <div>
+          <div className="text-[10px] tracking-widest text-neutral-500 uppercase mb-0.5">Date</div>
+          <div className="font-bold text-neutral-100">{formattedDate}</div>
+        </div>
+      )}
       <div>
         <div className="text-[10px] tracking-widest text-neutral-500 uppercase mb-0.5">Goal</div>
         <div className="font-pace text-neutral-100">{formatTime(goalSeconds)}</div>

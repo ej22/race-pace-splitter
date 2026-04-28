@@ -2,16 +2,18 @@ import React from 'react';
 import { downloadCsv } from '../utils/exportCsv';
 import { downloadPdf } from '../utils/exportPdf';
 
-export default function ExportButtons({ segments, raceInfo, elevationSummary, chartRef }) {
+export default function ExportButtons({ segments, raceInfo, elevationSummary, chartRef, courseName, raceDate }) {
   if (!segments || segments.length === 0) return null;
 
+  const enrichedRaceInfo = { ...raceInfo, courseName: courseName || '', raceDate: raceDate || '' };
+
   function handleCsv() {
-    downloadCsv(segments, raceInfo, elevationSummary);
+    downloadCsv(segments, enrichedRaceInfo, elevationSummary);
   }
 
   function handlePdf() {
     const chartImage = chartRef?.current?.getChartImage?.() ?? null;
-    downloadPdf(segments, raceInfo, elevationSummary, chartImage);
+    downloadPdf(segments, enrichedRaceInfo, elevationSummary, chartImage);
   }
 
   const btn =

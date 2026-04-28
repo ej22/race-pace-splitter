@@ -9,6 +9,7 @@ import GoalSummary from './components/GoalSummary';
 import GpxUpload from './components/GpxUpload';
 import ElevationChart from './components/ElevationChart';
 import ExportButtons from './components/ExportButtons';
+import PersonalisationFields from './components/PersonalisationFields';
 import {
   generateEvenSplits,
   generateProgressiveSplits,
@@ -30,6 +31,8 @@ export default function App() {
   const [elevationProfile, setElevationProfile] = useState(null);
   const [elevationSummary, setElevationSummary] = useState(null);
   const [gpxFilename, setGpxFilename] = useState(null);
+  const [courseName, setCourseName] = useState('');
+  const [raceDate, setRaceDate] = useState('');
 
   const chartRef = useRef(null);
 
@@ -138,6 +141,13 @@ export default function App() {
           <GoalTimeInput goalTime={goalTime} onChange={setGoalTime} selectedRace={selectedRace} />
         </div>
 
+        <PersonalisationFields
+          courseName={courseName}
+          raceDate={raceDate}
+          onCourseNameChange={setCourseName}
+          onRaceDateChange={setRaceDate}
+        />
+
         <SplitModeSelector
           splitMode={splitMode}
           onChange={(mode) => {
@@ -172,6 +182,8 @@ export default function App() {
             splitMode={splitMode}
             segments={splitMode !== 'custom' ? segments : customSegments}
             elevationSummary={elevationSummary}
+            courseName={courseName}
+            raceDate={raceDate}
           />
         )}
 
@@ -205,6 +217,8 @@ export default function App() {
             raceInfo={raceInfo}
             elevationSummary={elevationSummary}
             chartRef={chartRef}
+            courseName={courseName}
+            raceDate={raceDate}
           />
         )}
       </main>

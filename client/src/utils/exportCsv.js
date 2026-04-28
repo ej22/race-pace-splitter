@@ -4,13 +4,25 @@ function sanitize(str) {
   return (str || '').toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
 }
 
+function formatDate(isoDate) {
+  if (!isoDate) return null;
+  const [y, m, d] = isoDate.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
 export function downloadCsv(segments, raceInfo, elevationSummary) {
-  const { raceName, distanceKm, unit, goalTime, splitMode, avgPace } = raceInfo;
+  const { raceName, distanceKm, unit, goalTime, splitMode, avgPace, courseName, raceDate } = raceInfo;
   const hasElevation = elevationSummary != null && segments[0]?.adjustedPaceSeconds != null;
   const paceUnit = unit === 'mile' ? '/mi' : '/km';
   const paceConvert = unit === 'mile' ? 1.60934 : 1;
 
   const lines = [];
+  if (courseName) lines.push(`# Course: ${courseName}`);
+  if (raceDate) lines.push(`# Date: ${formatDate(raceDate)}`);
   lines.push(`# Race: ${raceName}`);
   lines.push(`# Distance: ${distanceKm} km`);
   lines.push(`# Goal Time: ${goalTime}`);
@@ -49,7 +61,10 @@ export function downloadCsv(segments, raceInfo, elevationSummary) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `race-splits-${sanitize(raceName)}-${sanitize(goalTime)}.csv`;
+
+  const fileBase = courseName ? sanitize(courseName) : `race-splits-${sanitize(raceName)}`;
+  a.download = `${fileBase}-${sanitize(goalTime)}.csv`;
+
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
