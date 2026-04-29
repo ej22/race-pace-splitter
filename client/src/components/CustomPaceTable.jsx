@@ -1,6 +1,7 @@
 import React from 'react';
 import { parsePaceInput, formatTime, calcCumulativeTime } from '../utils/paceCalc';
 import { applyGradeAdjustment } from '../utils/gradeAdjust';
+import PaceToolbar from './PaceToolbar';
 
 const MILES_TO_KM = 1.60934;
 
@@ -52,6 +53,11 @@ export default function CustomPaceTable({ selectedRace, customPaces, onChange, g
   return (
     <div className="space-y-2">
       <h2 className="text-xs font-bold tracking-widest text-neutral-500 uppercase">Custom Paces</h2>
+      <PaceToolbar
+        paceUnit={paceUnit}
+        totalSegments={totalSegments}
+        onChange={onChange}
+      />
       <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
