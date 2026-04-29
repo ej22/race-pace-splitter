@@ -102,8 +102,8 @@ docker build -t race-pace-splitter . && docker compose up -d
 | GPX file upload | `server/index.js`, `GpxUpload.jsx` | Server parses GPX XML with fast-xml-parser; extracts trackpoints, computes haversine distances, returns per-segment elevation data |
 | Grade-adjusted pace | `gradeAdjust.js`, `SplitResultsTable.jsx`, `CustomPaceTable.jsx` | Multiplier formula applied per segment; paces normalised so total = goal time exactly |
 | Elevation chart | `ElevationChart.jsx` | Recharts AreaChart with orange gradient; segment ReferenceLine boundaries; exposes `getChartImage()` via forwardRef for PDF capture |
-| CSV export | `exportCsv.js`, `ExportButtons.jsx` | Comment-header rows + column header + data rows; elevation columns included when GPX loaded |
-| PDF export | `exportPdf.js`, `ExportButtons.jsx` | jsPDF A4 light theme; info grid header, embedded elevation chart image, jspdf-autotable splits table with orange header row |
+| CSV export | `exportCsv.js`, `ExportButtons.jsx` | Comment-header rows + column header + data rows; elevation columns included when GPX loaded; goalTime row omitted from header if not set |
+| PDF export | `exportPdf.js`, `ExportButtons.jsx` | jsPDF A4 light theme; info grid header, embedded elevation chart image, jspdf-autotable splits table with orange header row; Goal Time and Avg Pace rows omitted from info grid if not set |
 | GoalSummary elevation | `GoalSummary.jsx` | Shows total ascent and descent when GPX is loaded |
 
 ### V3 Features
@@ -174,9 +174,20 @@ adjustedSegments   — segments with grade adjustment applied
 customSegments     — computed from customPaces (for export + GoalSummary)
 exportSegments     — adjustedSegments or customSegments depending on mode
 raceInfo           — { raceName, distanceKm, unit, goalTime, splitMode, splitPercent, avgPace }
+                     In custom mode, raceInfo is non-null even when goalSeconds is null (goalTime
+                     and avgPace fields will be null in that case).
 
 Note: courseName and raceDate are passed separately alongside raceInfo to GoalSummary and ExportButtons. ExportButtons merges them into raceInfo before calling export utilities (as courseName and raceDate keys), keeping raceInfo minimal for the non-export use cases.
 ```
+
+### Export Button Visibility Rule
+
+| Split mode | Condition to show Export buttons |
+|---|---|
+| `custom` | `exportSegments.length > 0` (all segment paces filled in); goal time is **not** required |
+| `even`, `positive`, `negative` | `raceInfo != null && exportSegments.length > 0` (requires both selected race and goal time) |
+
+This is enforced by the `{raceInfo && exportSegments.length > 0 && (` condition in `App.jsx`, combined with `raceInfo` being non-null in custom mode as long as a race is selected.
 
 ---
 
