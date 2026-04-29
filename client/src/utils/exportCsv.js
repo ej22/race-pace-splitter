@@ -25,7 +25,7 @@ export function downloadCsv(segments, raceInfo, elevationSummary) {
   if (raceDate) lines.push(`# Date: ${formatDate(raceDate)}`);
   lines.push(`# Race: ${raceName}`);
   lines.push(`# Distance: ${distanceKm} km`);
-  lines.push(`# Goal Time: ${goalTime}`);
+  if (goalTime) lines.push(`# Goal Time: ${goalTime}`);
   lines.push(`# Split Mode: ${splitMode}`);
   lines.push(`# Avg Pace: ${avgPace}`);
   if (hasElevation) {
@@ -63,7 +63,8 @@ export function downloadCsv(segments, raceInfo, elevationSummary) {
   a.href = url;
 
   const fileBase = courseName ? sanitize(courseName) : `race-splits-${sanitize(raceName)}`;
-  a.download = `${fileBase}-${sanitize(goalTime)}.csv`;
+  const goalSuffix = goalTime ? `-${sanitize(goalTime)}` : '';
+  a.download = `${fileBase}${goalSuffix}.csv`;
 
   document.body.appendChild(a);
   a.click();
