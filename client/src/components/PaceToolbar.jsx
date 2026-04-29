@@ -1,32 +1,17 @@
 import React, { useState } from 'react';
 import { parsePaceInput } from '../utils/paceCalc';
 
-const MIN_SECONDS = 5;
-const DEFAULT_SECONDS = 300; // 5:00
-
 function secondsToMmss(s) {
   const m = Math.floor(s / 60);
   const sec = s % 60;
   return `${m}:${String(sec).padStart(2, '0')}`;
 }
 
-function parseOrDefault(val) {
-  const parsed = parsePaceInput(val);
-  return parsed != null ? parsed : null;
-}
-
 export default function PaceToolbar({ paceUnit, totalSegments, onChange }) {
   const [inputVal, setInputVal] = useState('');
 
-  function adjust(delta) {
-    const current = parseOrDefault(inputVal);
-    const base = current != null ? current : DEFAULT_SECONDS;
-    const next = Math.max(MIN_SECONDS, base + delta);
-    setInputVal(secondsToMmss(next));
-  }
-
   function handleApply() {
-    const parsed = parseOrDefault(inputVal);
+    const parsed = parsePaceInput(inputVal);
     if (parsed == null) return;
     const mmss = secondsToMmss(parsed);
     onChange(Array.from({ length: totalSegments }, () => mmss));
@@ -40,14 +25,6 @@ export default function PaceToolbar({ paceUnit, totalSegments, onChange }) {
         Set pace for all segments
       </p>
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          onClick={() => adjust(-5)}
-          className="w-9 h-9 flex items-center justify-center bg-neutral-900 border border-neutral-700 text-neutral-300 text-xs font-mono hover:border-[#F27E00] hover:text-[#F27E00] transition-colors"
-          title="Subtract 5 seconds"
-        >
-          −5
-        </button>
-
         <div className="flex items-center gap-1">
           <input
             type="text"
@@ -62,14 +39,6 @@ export default function PaceToolbar({ paceUnit, totalSegments, onChange }) {
           />
           <span className="text-neutral-500 text-xs font-mono">{paceUnit}</span>
         </div>
-
-        <button
-          onClick={() => adjust(5)}
-          className="w-9 h-9 flex items-center justify-center bg-neutral-900 border border-neutral-700 text-neutral-300 text-xs font-mono hover:border-[#F27E00] hover:text-[#F27E00] transition-colors"
-          title="Add 5 seconds"
-        >
-          +5
-        </button>
 
         <button
           onClick={handleApply}

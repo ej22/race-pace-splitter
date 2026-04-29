@@ -4,6 +4,14 @@ import { applyGradeAdjustment } from '../utils/gradeAdjust';
 import PaceToolbar from './PaceToolbar';
 
 const MILES_TO_KM = 1.60934;
+const MIN_PACE_SECONDS = 5;
+const DEFAULT_PACE_SECONDS = 300;
+
+function secondsToMmss(s) {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${String(sec).padStart(2, '0')}`;
+}
 
 export default function CustomPaceTable({ selectedRace, customPaces, onChange, goalSeconds, elevationProfile }) {
   if (!selectedRace) return null;
@@ -19,6 +27,13 @@ export default function CustomPaceTable({ selectedRace, customPaces, onChange, g
     const next = [...paces];
     next[idx] = val;
     onChange(next);
+  }
+
+  function handleAdjust(idx, delta) {
+    const current = parsePaceInput(paces[idx]);
+    const base = current != null ? current : DEFAULT_PACE_SECONDS;
+    const next = Math.max(MIN_PACE_SECONDS, base + delta);
+    handleChange(idx, secondsToMmss(next));
   }
 
   const segments = paces.map((p, i) => {
@@ -94,17 +109,31 @@ export default function CustomPaceTable({ selectedRace, customPaces, onChange, g
                       : `${seg.distanceMarker.toFixed(1)} km`}
                   </td>
                   <td className="py-1 pr-4 text-right">
-                    <input
-                      type="text"
-                      placeholder="MM:SS"
-                      value={paces[idx]}
-                      onChange={(e) => handleChange(idx, e.target.value)}
-                      className={`w-20 bg-neutral-900 border text-right font-pace text-sm px-2 py-1 focus:outline-none focus:border-[#F27E00] ${
-                        paces[idx] && !paceValid
-                          ? 'border-red-500 text-red-400'
-                          : 'border-neutral-700 text-neutral-200'
-                      }`}
-                    />
+                    <div className="inline-flex items-center gap-1">
+                      <button
+                        onClick={() => handleAdjust(idx, -5)}
+                        className="w-7 h-7 flex items-center justify-center bg-neutral-900 border border-neutral-700 text-neutral-400 text-xs font-mono hover:border-[#F27E00] hover:text-[#F27E00] transition-colors"
+                      >
+                        -5
+                      </button>
+                      <input
+                        type="text"
+                        placeholder="MM:SS"
+                        value={paces[idx]}
+                        onChange={(e) => handleChange(idx, e.target.value)}
+                        className={`w-20 bg-neutral-900 border text-right font-pace text-sm px-2 py-1 focus:outline-none focus:border-[#F27E00] ${
+                          paces[idx] && !paceValid
+                            ? 'border-red-500 text-red-400'
+                            : 'border-neutral-700 text-neutral-200'
+                        }`}
+                      />
+                      <button
+                        onClick={() => handleAdjust(idx, 5)}
+                        className="w-7 h-7 flex items-center justify-center bg-neutral-900 border border-neutral-700 text-neutral-400 text-xs font-mono hover:border-[#F27E00] hover:text-[#F27E00] transition-colors"
+                      >
+                        +5
+                      </button>
+                    </div>
                   </td>
                   {hasElevation && (
                     <>
