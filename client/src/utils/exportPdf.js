@@ -54,9 +54,9 @@ export function downloadPdf(segments, raceInfo, elevationSummary, chartImageData
   const infoItems = [
     ['Race', raceName || '—'],
     ['Distance', `${distanceKm} km`],
-    ['Goal Time', goalTime || '—'],
+    ...(goalTime ? [['Goal Time', goalTime]] : []),
     ['Strategy', splitMode || '—'],
-    ['Avg Pace', avgPace || '—'],
+    ...(avgPace ? [['Avg Pace', avgPace]] : []),
   ];
   if (hasElevation) {
     infoItems.push(['Total Ascent', `+${elevationSummary.totalAscent}m`]);
@@ -139,5 +139,6 @@ export function downloadPdf(segments, raceInfo, elevationSummary, chartImageData
   doc.text(new Date().toLocaleDateString(), pageW - margin, finalY + 8, { align: 'right' });
 
   const fileBase = courseName ? sanitize(courseName) : `race-splits-${sanitize(raceName)}`;
-  doc.save(`${fileBase}-${sanitize(goalTime)}.pdf`);
+  const goalSuffix = goalTime ? `-${sanitize(goalTime)}` : '';
+  doc.save(`${fileBase}${goalSuffix}.pdf`);
 }
