@@ -112,18 +112,19 @@ export default function App() {
   }
 
   const raceInfo = useMemo(() => {
-    if (!selectedRace || !goalSeconds) return null;
-    const avgPaceKm = goalSeconds / selectedRace.distanceKm;
-    const avgPaceDisplay = selectedRace.unit === 'mile' ? avgPaceKm * MILES_TO_KM : avgPaceKm;
+    if (!selectedRace) return null;
+    if (!goalSeconds && splitMode !== 'custom') return null;
     const paceUnit = selectedRace.unit === 'mile' ? '/mi' : '/km';
+    const avgPaceKm = goalSeconds ? goalSeconds / selectedRace.distanceKm : null;
+    const avgPaceDisplay = avgPaceKm != null ? (selectedRace.unit === 'mile' ? avgPaceKm * MILES_TO_KM : avgPaceKm) : null;
     return {
       raceName: selectedRace.label,
       distanceKm: selectedRace.distanceKm,
       unit: selectedRace.unit,
-      goalTime: formatTime(goalSeconds),
+      goalTime: goalSeconds ? formatTime(goalSeconds) : null,
       splitMode,
       splitPercent,
-      avgPace: `${formatPace(avgPaceDisplay)}${paceUnit}`,
+      avgPace: avgPaceDisplay != null ? `${formatPace(avgPaceDisplay)}${paceUnit}` : null,
     };
   }, [selectedRace, goalSeconds, splitMode, splitPercent]);
 
@@ -211,7 +212,7 @@ export default function App() {
           />
         )}
 
-        {raceInfo && (
+        {raceInfo && exportSegments.length > 0 && (
           <ExportButtons
             segments={exportSegments}
             raceInfo={raceInfo}
