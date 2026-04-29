@@ -1,6 +1,6 @@
 # Race Pace Splitter — Build Handover
 
-**Date:** 2026-04-28  
+**Date:** 2026-04-29  
 **Status:** Complete and running  
 **Container:** `race-pace-splitter:latest`  
 **Live at:** `http://localhost:1337`
@@ -49,6 +49,7 @@ race-pace-splitter/
             ├── SplitModeSelector.jsx
             ├── SplitSlider.jsx
             ├── CustomPaceTable.jsx
+            ├── PaceToolbar.jsx         # Pace staging toolbar (Apply to All + ±5s); rendered inside CustomPaceTable
             ├── SplitResultsTable.jsx
             ├── GoalSummary.jsx
             ├── GpxUpload.jsx           # Drag-and-drop GPX upload
@@ -112,6 +113,18 @@ docker build -t race-pace-splitter . && docker compose up -d
 |---|---|---|
 | Course Name input | `PersonalisationFields.jsx`, `App.jsx` | Optional free-text field; appears in GoalSummary, PDF title, CSV header, and export filename |
 | Race Date input | `PersonalisationFields.jsx`, `App.jsx` | Optional date picker; displayed as locale-formatted string everywhere (e.g. "26 October 2026"); PDF includes weekday |
+
+### V4 Features
+
+| Feature | Files | Notes |
+|---|---|---|
+| Pace toolbar (Custom mode) | `PaceToolbar.jsx`, `CustomPaceTable.jsx` | Toolbar rendered above the custom pace table; only visible in Custom split mode |
+
+**PaceToolbar details:**
+- Contains a MM:SS pace input field (same validation + styling as per-segment inputs), with the unit label (`/km` or `/mi`) shown inline
+- **−5 / +5 buttons** adjust the staged input value by ±5 seconds with correct MM:SS rollover (e.g. 5:00 − 5s → 4:55; 4:57 + 5s → 5:02). Minimum floor is 5 seconds. If the field contains an invalid value when a nudge button is pressed, defaults to 5:00 before adjusting.
+- **Apply to All** button fills every segment row with the staged pace value, triggering immediate recalculation of cumulative times, total time, and goal delta via the existing `onChange` handler passed from App.jsx
+- Toolbar state (the staged input value) is local to `PaceToolbar` — it does not lift to App.jsx. Only the `onChange(allPaces)` call on Apply writes to shared state.
 
 ---
 
