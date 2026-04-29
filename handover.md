@@ -122,9 +122,15 @@ docker build -t race-pace-splitter . && docker compose up -d
 
 **PaceToolbar details:**
 - Contains a MM:SS pace input field (same validation + styling as per-segment inputs), with the unit label (`/km` or `/mi`) shown inline
-- **−5 / +5 buttons** adjust the staged input value by ±5 seconds with correct MM:SS rollover (e.g. 5:00 − 5s → 4:55; 4:57 + 5s → 5:02). Minimum floor is 5 seconds. If the field contains an invalid value when a nudge button is pressed, defaults to 5:00 before adjusting.
 - **Apply to All** button fills every segment row with the staged pace value, triggering immediate recalculation of cumulative times, total time, and goal delta via the existing `onChange` handler passed from App.jsx
 - Toolbar state (the staged input value) is local to `PaceToolbar` — it does not lift to App.jsx. Only the `onChange(allPaces)` call on Apply writes to shared state.
+
+**Per-row ±5s quick adjust (CustomPaceTable):**
+- Every segment row in the table has `[ -5 ] [ MM:SS input ] [ +5 ]` inline in the pace column
+- Clicking −5 or +5 directly modifies that row's pace by ±5 seconds (live, not staged)
+- MM:SS rollover is correct: 5:00 − 5 → 4:55; 4:57 + 5 → 5:02. Minimum floor is 5 seconds.
+- If a row's pace is empty when a button is clicked, it defaults to 5:00 before applying the delta (empty → +5 → 5:05)
+- Cumulative times, total, and goal delta recalculate immediately after each click via the same `onChange` handler
 
 ---
 
