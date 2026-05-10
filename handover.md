@@ -1,6 +1,6 @@
 # Race Pace Splitter — Build Handover
 
-**Date:** 2026-04-29  
+**Date:** 2026-05-10  
 **Status:** Complete and running  
 **Container:** `race-pace-splitter:latest`  
 **Live at:** `http://localhost:1337`
@@ -36,13 +36,14 @@ race-pace-splitter/
     ├── postcss.config.js
     └── src/
         ├── main.jsx
-        ├── App.jsx               # All state lives here
+        ├── App.jsx               # All state + tab navigation (Race Splits / Treadmill)
         ├── index.css             # Tailwind directives + .font-pace utility
         ├── utils/
         │   ├── paceCalc.js       # Core pace/time calculation (pure functions)
         │   ├── gradeAdjust.js    # Grade-adjusted pace with normalisation
         │   ├── exportCsv.js      # CSV Blob download
-        │   └── exportPdf.js      # jsPDF A4 PDF generation
+        │   ├── exportPdf.js      # jsPDF A4 PDF generation
+        │   └── treadmillCalc.js  # Treadmill conversion model + range table generator
         └── components/
             ├── RaceSelector.jsx
             ├── GoalTimeInput.jsx
@@ -55,7 +56,8 @@ race-pace-splitter/
             ├── GpxUpload.jsx           # Drag-and-drop GPX upload
             ├── ElevationChart.jsx      # Recharts area chart; exposes getChartImage() ref
             ├── ExportButtons.jsx       # Export CSV / Export PDF
-            └── PersonalisationFields.jsx # Optional Course Name + Race Date inputs
+            ├── PersonalisationFields.jsx # Optional Course Name + Race Date inputs
+            └── TreadmillConverter.jsx  # Treadmill Speed Converter page
 ```
 
 ---
@@ -120,6 +122,22 @@ docker build -t race-pace-splitter . && docker compose up -d
 |---|---|---|
 | Pace toolbar (Custom mode) | `PaceToolbar.jsx`, `CustomPaceTable.jsx` | Toolbar rendered above the custom pace table; only visible in Custom split mode |
 
+### V5 Features
+
+| Feature | Files | Notes |
+|---|---|---|
+| Tab navigation | `App.jsx` | Top nav bar with "Race Splits" and "Treadmill" tabs; simple conditional rendering, no React Router |
+| Treadmill Speed Converter | `TreadmillConverter.jsx`, `treadmillCalc.js` | Client-side-only feature; converts outdoor speed/pace to treadmill equivalent using a speed-scaled adjustment model |
+
+**TreadmillConverter details:**
+
+- **Input modes:** toggle between km/h and min/km (MM:SS) entry; switching auto-converts current values
+- **Range inputs:** "Slow end" and "Fast end" of the user's outdoor training range; each shows a live helper label with the equivalent in the other unit
+- **Conversion model:** `treadmillSpeed = outdoorSpeed × adjustmentFactor` where `adjustmentFactor = clamp(1.015 + (outdoorSpeed − 8) × 0.002, 1.015, 1.045)`. This models the ~1.5–4.5% effort advantage of treadmill running (no wind resistance, belt assist) scaling with speed.
+- **Summary cards:** three cards (Slowest / Average / Fastest) showing outdoor → treadmill conversion; Average card uses the exact midpoint of the input range and is highlighted with orange border
+- **Conversion table:** rows at 0.5 km/h steps from slow end to fast end; columns: Outdoor km/h, Outdoor Pace, Treadmill km/h, Treadmill Pace; the row closest to the midpoint is highlighted in orange
+- **No server changes** — entirely client-side
+
 **PaceToolbar details:**
 - Contains a MM:SS pace input field (same validation + styling as per-segment inputs), with the unit label (`/km` or `/mi`) shown inline
 - **Apply to All** button fills every segment row with the staged pace value, triggering immediate recalculation of cumulative times, total time, and goal delta via the existing `onChange` handler passed from App.jsx
@@ -135,6 +153,18 @@ docker build -t race-pace-splitter . && docker compose up -d
 ---
 
 ## Calculation Logic
+
+### treadmillCalc.js (V5)
+
+All pure functions, no side effects:
+
+- `convertOutdoorToTreadmill(outdoorSpeedKmh)` → treadmill speed using `factor = clamp(1.015 + (speed − 8) × 0.002, 1.015, 1.045)`
+- `speedToPace(speedKmh)` → pace in seconds per km (`3600 / speed`)
+- `paceToSpeed(paceSeconds)` → speed in km/h (`3600 / pace`)
+- `formatPace` — re-exported from `paceCalc.js` (identical signature)
+- `generateRangeTable(minSpeed, maxSpeed, stepSize)` → array of `{ outdoorSpeed, outdoorPace, treadmillSpeed, treadmillPace }` at `stepSize` km/h intervals (default 0.5), always includes `maxSpeed`
+
+---
 
 ### paceCalc.js (unchanged from V1)
 
@@ -169,6 +199,12 @@ Segment objects: `{ segment, distanceMarker, paceSeconds, segmentLengthKm, cumul
 3. Cumulative haversine distance computed across all trackpoints
 4. Trackpoints bucketed into 1km (or 1mi) segments
 5. Per segment: `startElevation`, `endElevation`, `elevationGain`, `elevationLoss`, `netChange`, `gradientPercent`
+
+---
+
+## Navigation (V5)
+
+`App.jsx` holds `activePage` state (`'splits'` | `'treadmill'`). A `<nav>` bar below the header renders two tab buttons styled with orange underline for the active tab. The existing Race Splits content is conditionally rendered when `activePage === 'splits'`; `<TreadmillConverter />` is rendered when `activePage === 'treadmill'`. Default is `'splits'`.
 
 ---
 
