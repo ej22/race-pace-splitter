@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
+import TreadmillConverter from './components/TreadmillConverter';
 import RaceSelector from './components/RaceSelector';
 import GoalTimeInput from './components/GoalTimeInput';
 import SplitModeSelector from './components/SplitModeSelector';
@@ -23,6 +24,7 @@ import { applyGradeAdjustment } from './utils/gradeAdjust';
 const MILES_TO_KM = 1.60934;
 
 export default function App() {
+  const [activePage, setActivePage] = useState('splits');
   const [selectedRace, setSelectedRace] = useState(null);
   const [goalTime, setGoalTime] = useState({ h: '', m: '', s: '' });
   const [splitMode, setSplitMode] = useState('even');
@@ -128,6 +130,11 @@ export default function App() {
     };
   }, [selectedRace, goalSeconds, splitMode, splitPercent]);
 
+  const tabs = [
+    { id: 'splits', label: 'Race Splits' },
+    { id: 'treadmill', label: 'Treadmill' },
+  ];
+
   return (
     <div className="min-h-screen bg-[#0f0f0f] text-neutral-100">
       <header className="border-b border-neutral-800 px-6 py-4">
@@ -136,6 +143,27 @@ export default function App() {
         </h1>
       </header>
 
+      <nav className="border-b border-neutral-800 px-6">
+        <div className="flex max-w-3xl mx-auto">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActivePage(tab.id)}
+              className={`py-3 px-4 text-xs font-bold tracking-widest uppercase border-b-2 transition-colors ${
+                activePage === tab.id
+                  ? 'border-[#F27E00] text-[#F27E00]'
+                  : 'border-transparent text-neutral-500 hover:text-neutral-300'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      {activePage === 'treadmill' ? (
+        <TreadmillConverter />
+      ) : (
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <RaceSelector selectedRace={selectedRace} onChange={setSelectedRace} />
@@ -223,6 +251,7 @@ export default function App() {
           />
         )}
       </main>
+      )}
     </div>
   );
 }
